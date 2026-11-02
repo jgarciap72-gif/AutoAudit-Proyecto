@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Auditoría y Bitácora</title>
+  <!-- Google Fonts: JetBrains Mono + Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS para exportación a Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          colors: {
+            neon: {
+              400: '#00ff66',
+              500: '#00e65c',
+              glow: 'rgba(0, 255, 102, 0.4)'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Efecto de resplandor Neón personalizado */
+    .neon-border {
+      border: 1px solid rgba(0, 255, 102, 0.3);
+      box-shadow: 0 0 15px rgba(0, 255, 102, 0.15);
+    }
+    .neon-border-active {
+      border: 1px solid #00ff66;
+      box-shadow: 0 0 20px rgba(0, 255, 102, 0.4);
+    }
+    .neon-text-glow {
+      text-shadow: 0 0 10px rgba(0, 255, 102, 0.6);
+    }
+    .neon-btn-glow {
+      box-shadow: 0 0 20px rgba(0, 255, 102, 0.35);
+    }
+    .neon-btn-glow:hover {
+      box-shadow: 0 0 30px rgba(0, 255, 102, 0.6);
+    }
+    /* Estilo para los scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #050505; }
+    ::-webkit-scrollbar-thumb { background: #15291b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00ff66; }
+  </style>
+</head>
+<body class="bg-black text-slate-200 min-h-screen antialiased font-sans selection:bg-neon-400 selection:text-black pb-16">
+
+  <!-- Fixed Credit Badge (Esquina Inferior Derecha) -->
+  <div class="fixed bottom-4 right-4 z-50 bg-black/90 border border-neon-400/50 text-neon-400 px-4 py-2.5 rounded-xl text-xs font-mono shadow-[0_0_20px_rgba(0,255,102,0.25)] backdrop-blur-md flex items-center space-x-3">
+    <span class="relative flex h-2 w-2">
+      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-400 opacity-75"></span>
+      <span class="relative inline-flex rounded-full h-2 w-2 bg-neon-400"></span>
+    </span>
+    <div>
+      <span class="text-slate-400">Desarrollado por</span>
+      <strong class="text-white font-bold ml-1">Javier García</strong>
+      <span class="text-neon-400 mx-1">•</span>
+      <span class="text-neon-400 font-semibold">Universidad Mariano Gálvez</span>
+    </div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="border-b border-neon-400/20 bg-black/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-xl bg-neon-400 text-black font-extrabold flex items-center justify-center font-mono text-xl shadow-[0_0_15px_rgba(0,255,102,0.5)]">
+          &gt;_
+        </div>
+        <div>
+          <span class="font-extrabold text-lg text-white tracking-tight font-mono neon-text-glow">Sistema de <span class="text-neon-400">Auditoría y Bitácora</span></span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 font-mono text-xs text-neon-400 bg-black border border-neon-400/30 px-3 py-1.5 rounded-lg shadow-[0_0_10px_rgba(0,255,102,0.1)]">
+        <span class="h-2 w-2 rounded-full bg-neon-400 animate-pulse"></span>
+        <span>SYSTEM_ONLINE // POSTGRES</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+    <!-- KPI Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="bg-black border border-neon-400/20 p-5 rounded-2xl neon-border transition-all">
+        <p class="text-xs font-mono font-semibold text-slate-400 uppercase tracking-wider">// TOTAL_EVENTOS</p>
+        <p class="text-4xl font-extrabold text-white font-mono mt-2 neon-text-glow" id="kpiTotal">0</p>
+        <span class="text-xs text-neon-400 font-mono mt-2 block">Logs interceptados</span>
+      </div>
+      <div class="bg-black border border-neon-400/20 p-5 rounded-2xl neon-border transition-all">
+        <p class="text-xs font-mono font-semibold text-slate-400 uppercase tracking-wider">// ESTADO_TRIGGERS</p>
+        <p class="text-4xl font-extrabold text-neon-400 font-mono mt-2 neon-text-glow">ACTIVE</p>
+        <span class="text-xs text-slate-400 font-mono mt-2 block">Escucha de BD operativa</span>
+      </div>
+      <div class="bg-black border border-neon-400/20 p-5 rounded-2xl neon-border transition-all">
+        <p class="text-xs font-mono font-semibold text-slate-400 uppercase tracking-wider">// ULTIMO_USUARIO</p>
+        <p class="text-4xl font-extrabold text-white font-mono mt-2 truncate" id="kpiUsuario">-</p>
+        <span class="text-xs text-neon-400 font-mono mt-2 block">Auditoría activa</span>
+      </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Panel 1: Reglas de Auditoría -->
+      <div class="lg:col-span-5 bg-black border border-neon-400/30 rounded-2xl p-6 shadow-2xl neon-border flex flex-col justify-between space-y-6">
+        <div>
+          <div class="flex items-center space-x-3 mb-6 border-b border-neon-400/20 pb-4">
+            <div class="p-2 bg-neon-400/10 text-neon-400 rounded-lg border border-neon-400/30">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white font-mono">1. Configurar Trigger</h2>
+              <p class="text-xs text-slate-400">Generador dinámico de reglas PostgreSQL</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-mono font-semibold text-neon-400 uppercase tracking-wider mb-2">Tabla Objetiva</label>
+              <select id="selectTabla" onchange="cargarColumnas()" class="w-full bg-slate-950 border border-neon-400/30 rounded-xl px-4 py-3 text-sm text-slate-100 font-mono focus:outline-none focus:border-neon-400 transition">
+                <option value="">-- Seleccionar Tabla --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-mono font-semibold text-neon-400 uppercase tracking-wider mb-2">Columna a Vigilar</label>
+              <select id="selectColumna" class="w-full bg-slate-950 border border-neon-400/30 rounded-xl px-4 py-3 text-sm text-slate-100 font-mono focus:outline-none focus:border-neon-400 transition">
+                <option value="">-- Seleccionar Columna --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-mono font-semibold text-neon-400 uppercase tracking-wider mb-3">Eventos a Interceptar</label>
+              <div class="grid grid-cols-3 gap-3">
+                <label class="flex items-center justify-center p-3 rounded-xl border border-neon-400/20 bg-slate-950/80 cursor-pointer hover:border-neon-400 transition">
+                  <input type="checkbox" value="INSERT" class="op-check rounded border-neon-400/40 text-neon-400 focus:ring-0 bg-black" checked>
+                  <span class="ml-2 text-xs font-mono font-bold text-slate-200">INSERT</span>
+                </label>
+                <label class="flex items-center justify-center p-3 rounded-xl border border-neon-400/20 bg-slate-950/80 cursor-pointer hover:border-neon-400 transition">
+                  <input type="checkbox" value="UPDATE" class="op-check rounded border-neon-400/40 text-neon-400 focus:ring-0 bg-black" checked>
+                  <span class="ml-2 text-xs font-mono font-bold text-slate-200">UPDATE</span>
+                </label>
+                <label class="flex items-center justify-center p-3 rounded-xl border border-neon-400/20 bg-slate-950/80 cursor-pointer hover:border-neon-400 transition">
+                  <input type="checkbox" value="DELETE" class="op-check rounded border-neon-400/40 text-neon-400 focus:ring-0 bg-black" checked>
+                  <span class="ml-2 text-xs font-mono font-bold text-slate-200">DELETE</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button onclick="guardarConfiguracion()" class="w-full bg-neon-400 hover:bg-neon-500 text-black font-extrabold font-mono py-3.5 px-4 rounded-xl transition-all neon-btn-glow flex items-center justify-center space-x-2">
+            <svg class="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>APLICAR CONFIGURACIÓN</span>
+          </button>
+          <div id="mensajeConfig" class="text-xs font-mono text-center mt-3 h-4"></div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Filtros & Acciones Rápidas -->
+      <div class="lg:col-span-7 bg-black border border-neon-400/30 rounded-2xl p-6 shadow-2xl neon-border flex flex-col justify-between space-y-6">
+        <div>
+          <div class="flex items-center space-x-3 mb-6 border-b border-neon-400/20 pb-4">
+            <div class="p-2 bg-neon-400/10 text-neon-400 rounded-lg border border-neon-400/30">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.447.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white font-mono">2. Filtros & Exportación</h2>
+              <p class="text-xs text-slate-400">Consulta de historial y generación de reportes</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-mono font-semibold text-neon-400 uppercase tracking-wider mb-2">Filtrar Usuario DB</label>
+              <input type="text" id="filtroUsuario" placeholder="Ej: postgres" class="w-full bg-slate-950 border border-neon-400/30 rounded-xl px-4 py-3 text-sm text-slate-100 font-mono placeholder-slate-600 focus:outline-none focus:border-neon-400 transition">
+            </div>
+            <div class="flex items-end">
+              <button onclick="consultarBitacora()" class="w-full bg-slate-900 hover:bg-slate-800 text-neon-400 font-mono font-bold py-3 px-4 rounded-xl border border-neon-400/40 transition flex items-center justify-center space-x-2">
+                <svg class="w-4 h-4 text-neon-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <span>BUSCAR REGISTROS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exportar Excel -->
+        <div class="pt-4 border-t border-neon-400/20 flex items-center justify-between">
+          <span class="text-xs font-mono text-slate-400">Formato Excel nativo (.xlsx)</span>
+          <button onclick="exportarExcel()" class="bg-black hover:bg-slate-900 text-neon-400 font-mono font-bold py-2.5 px-5 rounded-xl border border-neon-400 shadow-[0_0_15px_rgba(0,255,102,0.2)] hover:shadow-[0_0_25px_rgba(0,255,102,0.4)] transition-all flex items-center space-x-2">
+            <svg class="w-4 h-4 text-neon-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span>EXPORTAR EXCEL</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla de Bitácora -->
+    <div class="bg-black border border-neon-400/30 rounded-2xl shadow-2xl neon-border overflow-hidden">
+      <div class="p-6 border-b border-neon-400/20 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-white font-mono neon-text-glow">Bitácora de Eventos en Tiempo Real</h3>
+          <p class="text-xs text-slate-400 font-mono">Monitoreo activo de transacciones PostgreSQL</p>
+        </div>
+        <span class="text-xs font-mono bg-neon-400/10 border border-neon-400/30 text-neon-400 px-3 py-1 rounded-lg" id="counterBadge">0 Filas</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-neon-400/20 text-left">
+          <thead class="bg-slate-950 text-neon-400 font-mono text-[11px] tracking-wider font-semibold">
+            <tr>
+              <th class="px-5 py-3.5">ID</th>
+              <th class="px-5 py-3.5">FECHA / HORA</th>
+              <th class="px-5 py-3.5">TABLA</th>
+              <th class="px-5 py-3.5">COLUMNA</th>
+              <th class="px-5 py-3.5">OPERACIÓN</th>
+              <th class="px-5 py-3.5">ANTERIOR</th>
+              <th class="px-5 py-3.5">NUEVO</th>
+              <th class="px-5 py-3.5">USUARIO DB</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBitacora" class="divide-y divide-neon-400/10 text-xs font-mono">
+            <tr>
+              <td colspan="8" class="px-5 py-8 text-center text-slate-500">Iniciando consulta de bitácora...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    let rawBitacoraData = [];
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await cargarTablas();
+      await consultarBitacora();
+    });
+
+    // 1. Cargar Tablas
+    async function cargarTablas() {
+      try {
+        const res = await fetch(`${API_URL}/diccionario/tablas`);
+        const tablas = await res.json();
+        const select = document.getElementById('selectTabla');
+        select.innerHTML = '<option value="">-- Seleccionar Tabla --</option>';
+        tablas.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.table_name;
+          opt.dataset.esquema = t.table_schema;
+          opt.textContent = `${t.table_schema}.${t.table_name}`;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        console.error('Error al cargar tablas:', e);
+      }
+    }
+
+    // 2. Cargar Columnas
+    async function cargarColumnas() {
+      const select = document.getElementById('selectTabla');
+      const tabla = select.value;
+      const opt = select.options[select.selectedIndex];
+      const esquema = opt.dataset.esquema || 'public';
+
+      const selectCol = document.getElementById('selectColumna');
+      selectCol.innerHTML = '<option value="">-- Seleccionar Columna --</option>';
+      if (!tabla) return;
+
+      try {
+        const res = await fetch(`${API_URL}/diccionario/columnas?esquema=${esquema}&tabla=${tabla}`);
+        const columnas = await res.json();
+        columnas.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.column_name;
+          o.textContent = `${c.column_name} (${c.data_type})`;
+          selectCol.appendChild(o);
+        });
+      } catch (e) {
+        console.error('Error al cargar columnas:', e);
+      }
+    }
+
+    // 3. Guardar Configuración
+    async function guardarConfiguracion() {
+      const selectTabla = document.getElementById('selectTabla');
+      const tabla = selectTabla.value;
+      const opt = selectTabla.options[selectTabla.selectedIndex];
+      const esquema = opt.dataset.esquema || 'public';
+      const columna = document.getElementById('selectColumna').value;
+      const operaciones = Array.from(document.querySelectorAll('.op-check:checked')).map(cb => cb.value);
+
+      if (!tabla || !columna || operaciones.length === 0) {
+        alert('Por favor selecciona tabla, columna y al menos una operación.');
+        return;
+      }
+
+      const mensaje = document.getElementById('mensajeConfig');
+      mensaje.textContent = '> Aplicando trigger dinámico...';
+      mensaje.className = 'text-xs font-mono text-neon-400 mt-3 h-4';
+
+      try {
+        const res = await fetch(`${API_URL}/configurar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ esquema, tabla, columna, operaciones })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          mensaje.textContent = '✅ Trigger activado en PostgreSQL.';
+          mensaje.className = 'text-xs font-mono text-neon-400 mt-3 h-4';
+        } else {
+          mensaje.textContent = '❌ ERROR: ' + data.error;
+          mensaje.className = 'text-xs font-mono text-rose-500 mt-3 h-4';
+        }
+      } catch (e) {
+        mensaje.textContent = '❌ ERROR: Fallo de conexión con backend.';
+        mensaje.className = 'text-xs font-mono text-rose-500 mt-3 h-4';
+      }
+    }
+
+    // 4. Consultar Bitácora
+    async function consultarBitacora() {
+      const usuario = document.getElementById('filtroUsuario').value;
+      const tbody = document.getElementById('tablaBitacora');
+      tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-8 text-center text-slate-500 font-mono">Actualizando registros...</td></tr>';
+
+      try {
+        let url = `${API_URL}/bitacora?`;
+        if (usuario) url += `usuario=${encodeURIComponent(usuario)}`;
+
+        const res = await fetch(url);
+        const logs = await res.json();
+        rawBitacoraData = logs;
+
+        // Actualizar KPIs
+        document.getElementById('kpiTotal').textContent = logs.length;
+        document.getElementById('counterBadge').textContent = `${logs.length} Filas`;
+        if (logs.length > 0) {
+          document.getElementById('kpiUsuario').textContent = logs[0].usuario_db || '-';
+        }
+
+        if (logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-8 text-center text-slate-500 font-mono">No se encontraron eventos auditados.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        logs.forEach(log => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-950 transition-colors';
+
+          let badgeClass = 'border-slate-700 text-slate-300';
+          if (log.operacion === 'INSERT') badgeClass = 'bg-neon-400/10 text-neon-400 border-neon-400/30';
+          if (log.operacion === 'UPDATE') badgeClass = 'bg-amber-400/10 text-amber-400 border-amber-400/30';
+          if (log.operacion === 'DELETE') badgeClass = 'bg-rose-500/10 text-rose-500 border-rose-500/30';
+
+          tr.innerHTML = `
+            <td class="px-5 py-3.5 text-slate-400 font-mono text-[11px]">${log.id_bitacora}</td>
+            <td class="px-5 py-3.5 text-slate-300 font-mono">${new Date(log.fecha_hora).toLocaleString()}</td>
+            <td class="px-5 py-3.5 text-white font-bold font-mono">${log.tabla_origen}</td>
+            <td class="px-5 py-3.5 text-neon-400 font-mono">${log.columna_afectada}</td>
+            <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded border text-[10px] font-extrabold font-mono uppercase tracking-wider ${badgeClass}">${log.operacion}</span></td>
+            <td class="px-5 py-3.5 text-slate-400 font-mono">${log.valor_anterior || '<span class="text-slate-700">-</span>'}</td>
+            <td class="px-5 py-3.5 text-neon-400 font-mono font-bold">${log.valor_nuevo || '<span class="text-slate-700">-</span>'}</td>
+            <td class="px-5 py-3.5 text-slate-300 font-mono">${log.usuario_db}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-8 text-center text-rose-500 font-mono">Fallo al conectar con la bitácora.</td></tr>';
+      }
+    }
+
+    // 5. Exportar a Excel (.xlsx)
+    function exportarExcel() {
+      if (!rawBitacoraData || rawBitacoraData.length === 0) {
+        alert('No hay registros en la bitácora para exportar.');
+        return;
+      }
+
+      const datosExcel = rawBitacoraData.map(row => ({
+        'ID Bitácora': row.id_bitacora,
+        'Fecha / Hora': new Date(row.fecha_hora).toLocaleString(),
+        'Tabla Origen': row.tabla_origen,
+        'Columna Afectada': row.columna_afectada,
+        'Operación': row.operacion,
+        'Valor Anterior': row.valor_anterior || '',
+        'Valor Nuevo': row.valor_nuevo || '',
+        'Usuario Database': row.usuario_db
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Bitácora AutoAudit');
+
+      const fechaActual = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `AutoAudit_Reporte_${fechaActual}.xlsx`);
+    }
+  </script>
+</body>
+</html>
